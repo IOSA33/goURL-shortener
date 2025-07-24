@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"os"
 	"rest-api/internal/config"
+	"rest-api/internal/lib/logger/sl"
+	"rest-api/internal/storage/sqlite"
 )
 
 const (
@@ -16,12 +18,19 @@ func main() {
 	// init config: cleanenv
 	cfg := config.MustLoad()
 
-	// init logger: slog
+	// init logger: sl
 	log := setupLogger(cfg.Env)
 	log.Info("Starting URL Shortener ", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
 
-	// TODO: init storage: SQLite
+	// init storage: SQLite
+	storage, err := sqlite.New(cfg.StoragePath)
+	if err != nil {
+		log.Error("Error to init storage", sl.Err(err))
+		os.Exit(1)
+	}
+
+	_ = storage
 
 	// TODO: init router: chi, "chi render"
 
