@@ -21,7 +21,6 @@ const (
 func main() {
 	// init config: cleanenv
 	cfg := config.MustLoad()
-
 	// init logger: sl
 	log := setupLogger(cfg.Env)
 	log.Info("Starting URL Shortener ", slog.String("env", cfg.Env))
