@@ -67,7 +67,7 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 func (s *Storage) GetURL(alias string) (string, error) {
 	const op = "storage.sqlite.GetURL"
 
-	stmt, err := s.db.Prepare("SELECT url FROM alias WHERE alias = ?")
+	stmt, err := s.db.Prepare("SELECT url FROM url WHERE alias = ?")
 	if err != nil {
 		return "", fmt.Errorf("%s: prepare statement %w", op, err)
 	}

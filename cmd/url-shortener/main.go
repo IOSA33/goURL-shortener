@@ -4,8 +4,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
+	"net/http"
 	"os"
 	"rest-api/internal/config"
+	"rest-api/internal/http-server/handlers/redirect"
+	"rest-api/internal/http-server/handlers/url/deleteUrl"
+	"rest-api/internal/http-server/handlers/url/save"
 	mwLogger "rest-api/internal/http-server/middleware/logger" // custom name of import
 	"rest-api/internal/lib/logger/handler/slogpretty"
 	"rest-api/internal/lib/logger/sl"
@@ -44,7 +48,34 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
+	// basic auth with chi
+	router.Route("/url", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password,
+		}))
+
+		r.Post("/", save.New(log, storage))
+		r.Delete("/delete/{alias}", deleteUrl.New(log, storage))
+	})
+
+	router.Get("/{alias}", redirect.New(log, storage))
+
+	log.Info("starting server", slog.String("address", cfg.Address))
+
+	srv := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.Timeout,
+		WriteTimeout: cfg.HTTPServer.Timeout,
+		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
+	}
 	// TODO: run server:
+
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error("Failed to start server")
+	}
+
+	log.Error("server stopped")
 }
 
 func setupLogger(env string) *slog.Logger {
@@ -60,8 +91,8 @@ func setupLogger(env string) *slog.Logger {
 		log = slog.New(
 			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	default:
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
 
 	return log
