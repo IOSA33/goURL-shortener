@@ -5,8 +5,7 @@ import (
 	"log/slog"
 )
 
-// slogdiscard is a method for tests that does not write
-// logs down, so it won't write any log in console
+// slogdiscard is a method for tests that does not write logs in console
 
 func NewDiscardLogger() *slog.Logger {
 	return slog.New(NewDiscardHandler())

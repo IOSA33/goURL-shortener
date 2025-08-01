@@ -1,4 +1,5 @@
+# Config to set up mockery
 packages:
-  rest-api/internal/http-server/handlers/url/save:
+  rest-api/internal/http-server/handlers/url/save/mocks_save:
     interfaces:
       URLSaver:

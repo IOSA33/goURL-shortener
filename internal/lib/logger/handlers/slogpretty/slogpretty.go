@@ -9,6 +9,9 @@ import (
 	"log/slog"
 )
 
+// Only for local use
+// Pretty console logs
+
 type PrettyHandlerOptions struct {
 	SlogOpts *slog.HandlerOptions
 }
