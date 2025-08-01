@@ -1,0 +1,4 @@
+packages:
+  rest-api/internal/http-server/handlers/url/save:
+    interfaces:
+      URLSaver:
