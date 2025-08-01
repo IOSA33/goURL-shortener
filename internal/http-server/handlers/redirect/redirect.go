@@ -12,6 +12,7 @@ import (
 	"rest-api/internal/storage"
 )
 
+// URLGetter is an interface for getting url by alias.
 type URLGetter interface {
 	GetURL(alias string) (string, error)
 }
@@ -46,6 +47,7 @@ func New(log *slog.Logger, urlGetter URLGetter) http.HandlerFunc {
 
 		log.Info("Got url", slog.String("url", resURL))
 
+		// redirect to found url
 		http.Redirect(w, r, resURL, http.StatusFound)
 	}
 }

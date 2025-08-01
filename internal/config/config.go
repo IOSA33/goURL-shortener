@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
+// Config structure
 type Config struct {
-	Env         string `yaml:"env" env-default:"local"`
+	Env         string `yaml:"env" env-default:"local"` // yaml config, it tells what to need to find in yaml file
 	StoragePath string `yaml:"storage_path" env-required:"true"`
 	HTTPServer  `yaml:"http_server"`
 }
 
+// HTTPServer structure
 type HTTPServer struct {
 	Address     string        `yaml:"address" env-default:"localhost:8080"`
 	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
@@ -21,6 +23,7 @@ type HTTPServer struct {
 	Password    string        `yaml:"password" env-required:"true" env:"HTTP_SERVER_PASSWORD"`
 }
 
+// MustLoad loads configuration from local.yaml file, when server is starting
 func MustLoad() *Config {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {

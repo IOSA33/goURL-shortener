@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+
 	"testing"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"rest-api/internal/http-server/handlers/url/save"
-	"rest-api/internal/lib/logger/handler/slogdiscard"
+	"rest-api/internal/lib/logger/handlers/slogdiscard"
 )
 
 func TestSaveHandler(t *testing.T) {

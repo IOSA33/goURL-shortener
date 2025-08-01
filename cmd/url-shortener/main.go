@@ -11,7 +11,7 @@ import (
 	"rest-api/internal/http-server/handlers/url/deleteUrl"
 	"rest-api/internal/http-server/handlers/url/save"
 	mwLogger "rest-api/internal/http-server/middleware/logger" // custom name of import
-	"rest-api/internal/lib/logger/handler/slogpretty"
+	"rest-api/internal/lib/logger/handlers/slogpretty"
 	"rest-api/internal/lib/logger/sl"
 	"rest-api/internal/storage/sqlite"
 )
@@ -25,6 +25,7 @@ const (
 func main() {
 	// init config: cleanenv
 	cfg := config.MustLoad()
+
 	// init logger: sl
 	log := setupLogger(cfg.Env)
 	log.Info("Starting URL Shortener ", slog.String("env", cfg.Env))
@@ -54,14 +55,17 @@ func main() {
 			cfg.HTTPServer.User: cfg.HTTPServer.Password,
 		}))
 
+		// post method to save url
 		r.Post("/", save.New(log, storage))
 		r.Delete("/delete/{alias}", deleteUrl.New(log, storage))
 	})
 
+	// get method that redirects user to found url
 	router.Get("/{alias}", redirect.New(log, storage))
 
 	log.Info("starting server", slog.String("address", cfg.Address))
 
+	// server config
 	srv := &http.Server{
 		Addr:         cfg.Address,
 		Handler:      router,
@@ -69,8 +73,8 @@ func main() {
 		WriteTimeout: cfg.HTTPServer.Timeout,
 		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
 	}
-	// TODO: run server:
 
+	// run server:
 	if err := srv.ListenAndServe(); err != nil {
 		log.Error("Failed to start server")
 	}
@@ -81,6 +85,7 @@ func main() {
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 
+	// different cases, if server is Local, Developer or Production
 	switch env {
 	case envLocal:
 		log = setupPrettySlog()
@@ -98,6 +103,7 @@ func setupLogger(env string) *slog.Logger {
 	return log
 }
 
+// function only for local use, for Pretty Logs in console
 func setupPrettySlog() *slog.Logger {
 	opts := slogpretty.PrettyHandlerOptions{
 		SlogOpts: &slog.HandlerOptions{

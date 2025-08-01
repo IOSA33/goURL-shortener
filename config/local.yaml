@@ -1,3 +1,4 @@
+# config file to setup server
 env: "local"
 storage_path: "./storage/storage.db"
 http_server:

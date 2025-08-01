@@ -12,6 +12,7 @@ type Storage struct {
 	db *sql.DB
 }
 
+// Storage SQLite
 func New(storagePath string) (*Storage, error) {
 	const op = "storage.sqlite.New"
 

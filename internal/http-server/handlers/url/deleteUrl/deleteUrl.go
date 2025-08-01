@@ -21,6 +21,7 @@ func New(log *slog.Logger, urlDeleter URLDeleter) http.HandlerFunc {
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
+		// Getting parameters from URL request
 		alias := chi.URLParam(r, "alias")
 		if alias == "" {
 			log.Info("alias is empty")
@@ -28,6 +29,7 @@ func New(log *slog.Logger, urlDeleter URLDeleter) http.HandlerFunc {
 			return
 		}
 
+		// if no errors it deletes URL from database with DeleteURL function
 		err := urlDeleter.DeleteURL(alias)
 		if err != nil {
 			log.Info("url not found")
@@ -35,6 +37,7 @@ func New(log *slog.Logger, urlDeleter URLDeleter) http.HandlerFunc {
 			return
 		}
 
+		// log that is everything is correct
 		log.Info("URL successfully deleted, url:", alias)
 	}
 }

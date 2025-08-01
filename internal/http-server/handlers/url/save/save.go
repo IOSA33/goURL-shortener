@@ -26,7 +26,9 @@ type Response struct {
 	Alias string `json:"alias,omitempty"`
 }
 
-//go:generate go run github.com/vektra/mockery/v3@v3.5.1 --help
+// Does not work anymore with --name flag, needs to use .mockery.yaml file
+//
+//go:generate go run github.com/vektra/mockery/v3@v3.5.1 --name=URLShortener
 type URLSaver interface {
 	SaveURL(urlToSave string, alias string) (int64, error)
 }
@@ -64,6 +66,7 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		}
 
 		id, err := urlSaver.SaveURL(req.URL, alias)
+		// This error appears when url param is empty
 		if errors.Is(err, storage.ErrURLExists) {
 			log.Info("url already exists", sl.Err(err))
 			render.JSON(w, r, resp.Error("url already exists"))
@@ -77,9 +80,14 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 
 		log.Info("url added", slog.Int64("id", id))
 
-		render.JSON(w, r, Response{
-			Response: resp.OK(),
-			Alias:    alias,
-		})
+		// Tells that everything is OK and URL is added to db
+		responseOK(w, r, alias)
 	}
+}
+
+func responseOK(w http.ResponseWriter, r *http.Request, alias string) {
+	render.JSON(w, r, Response{
+		Response: resp.OK(),
+		Alias:    alias,
+	})
 }

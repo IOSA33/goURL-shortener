@@ -5,7 +5,8 @@ import (
 	"time"
 )
 
-// NewRandomString generates random string with given size.
+// NewRandomString generates random string with given size
+// if user tries to save URL without alias name, it will generate automatically
 func NewRandomString(size int) string {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
