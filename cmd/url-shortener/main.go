@@ -63,6 +63,8 @@ func main() {
 	// get method that redirects user to found url
 	router.Get("/{alias}", redirect.New(log, storage))
 
+	// TODO: GET without chi
+
 	log.Info("starting server", slog.String("address", cfg.Address))
 
 	// server config
