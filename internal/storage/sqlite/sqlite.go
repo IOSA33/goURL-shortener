@@ -29,13 +29,13 @@ func New(storagePath string) (*Storage, error) {
 		url TEXT NOT NULL);
 	CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);
 
-	CREATE IF NOT EXISTS events(
-	       id INTEGER PRIMARY KEY,
-	       event_type TEXT NOT NULL,
-	       payload TEXT NOT NULL,
-	       status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'done')),
-	       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	)
+	CREATE TABLE IF NOT EXISTS events(
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		event_type TEXT NOT NULL,
+		payload TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'done')),
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -103,10 +103,12 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (id int64, err error) 
 
 func (s *Storage) saveEvent(tx *sql.Tx, eventType string, payload string) error {
 	const op = "storage.sqlite.saveEvent"
-	stmt, err := tx.Prepare("INSERT INTO events(event_type, payload) VALUES (?, ?)")
+
+	stmt, err := tx.Prepare("INSERT INTO events(event_type, payload) VALUES(?, ?)")
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
+
 	_, err = stmt.Exec(eventType, payload)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)

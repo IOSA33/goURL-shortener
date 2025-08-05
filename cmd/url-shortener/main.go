@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
@@ -13,7 +14,9 @@ import (
 	mwLogger "rest-api/internal/http-server/middleware/logger" // custom name of import
 	"rest-api/internal/lib/logger/handlers/slogpretty"
 	"rest-api/internal/lib/logger/sl"
+	eventsender "rest-api/internal/services/event_sender"
 	"rest-api/internal/storage/sqlite"
+	"time"
 )
 
 const (
@@ -75,6 +78,10 @@ func main() {
 		WriteTimeout: cfg.HTTPServer.Timeout,
 		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
 	}
+
+	sender := eventsender.New(storage, log)
+	// TODO: second parameter is better to move to config file
+	sender.StartProcessEvents(context.Background(), 5*time.Second)
 
 	// run server:
 	if err := srv.ListenAndServe(); err != nil {
