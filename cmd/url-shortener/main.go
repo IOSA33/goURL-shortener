@@ -7,6 +7,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+
+	ssogrpc "rest-api/internal/clients/sso/grpc"
+
 	"rest-api/internal/config"
 	"rest-api/internal/http-server/handlers/redirect"
 	"rest-api/internal/http-server/handlers/url/deleteUrl"
@@ -31,8 +34,24 @@ func main() {
 
 	// init logger: sl
 	log := setupLogger(cfg.Env)
-	log.Info("Starting URL Shortener ", slog.String("env", cfg.Env))
+	log.Info("Starting URL-Shortener ", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
+
+	// Adding Auth (sso) service
+	// Now this service can be implemented in middlewares or something
+	ssoClient, err := ssogrpc.New(
+		context.Background(),
+		log,
+		cfg.Clients.SSO.Address,
+		cfg.Clients.SSO.Timeout,
+		cfg.Clients.SSO.RetriesCount,
+	)
+	if err != nil {
+		log.Error("failed to init sso client", sl.Err(err))
+		os.Exit(1)
+	}
+
+	ssoClient.IsAdmin(context.Background(), 1)
 
 	// init storage: SQLite
 	storage, err := sqlite.New(cfg.StoragePath)
@@ -81,7 +100,7 @@ func main() {
 
 	sender := eventsender.New(storage, log)
 	// TODO: second parameter is better to move to config file
-	sender.StartProcessEvents(context.Background(), 5*time.Second)
+	sender.StartProcessEvents(context.Background(), 60*time.Second)
 
 	// run server:
 	if err := srv.ListenAndServe(); err != nil {

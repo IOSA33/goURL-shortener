@@ -28,20 +28,21 @@ func New(storagePath string) (*Storage, error) {
 		alias TEXT NOT NULL UNIQUE,
 		url TEXT NOT NULL);
 	CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);
+	`)
 
-	CREATE TABLE IF NOT EXISTS events(
+	stmt1, err := db.Prepare(`	CREATE TABLE IF NOT EXISTS events(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		event_type TEXT NOT NULL,
 		payload TEXT NOT NULL,
 		status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'done')),
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
-	`)
+	);`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	_, err = stmt.Exec()
+	_, err = stmt1.Exec()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
