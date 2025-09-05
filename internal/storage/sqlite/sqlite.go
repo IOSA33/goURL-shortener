@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mattn/go-sqlite3"
-	"rest-api/internal/domain"
+	"golang.org/x/crypto/bcrypt"
+	"rest-api/internal/domain/models"
 	"rest-api/internal/storage"
 )
 
@@ -30,7 +31,15 @@ func New(storagePath string) (*Storage, error) {
 	CREATE INDEX IF NOT EXISTS idx_alias ON url(alias);
 	`)
 
-	stmt1, err := db.Prepare(`	CREATE TABLE IF NOT EXISTS events(
+	stmt1, err := db.Prepare(`
+	CREATE TABLE IF NOT EXISTS users(
+		id INTEGER PRIMARY KEY,
+		email TEXT NOT NULL UNIQUE,
+		password TEXT NOT NULL);
+	CREATE INDEX IF NOT EXISTS idx_user ON users(email);
+	`)
+
+	stmt2, err := db.Prepare(`	CREATE TABLE IF NOT EXISTS events(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		event_type TEXT NOT NULL,
 		payload TEXT NOT NULL,
@@ -43,6 +52,7 @@ func New(storagePath string) (*Storage, error) {
 
 	_, err = stmt.Exec()
 	_, err = stmt1.Exec()
+	_, err = stmt2.Exec()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -124,7 +134,7 @@ type event struct {
 	Payload string `db:"payload"`
 }
 
-func (s *Storage) GetNewEvent() (domain.Event, error) {
+func (s *Storage) GetNewEvent() (models.Event, error) {
 	const op = "storage.sqlite.GetNewEvent"
 
 	// TODO: add field `reserved_to` for locking events for processing
@@ -135,13 +145,13 @@ func (s *Storage) GetNewEvent() (domain.Event, error) {
 	err := row.Scan(&evt.ID, &evt.Type, &evt.Payload)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return domain.Event{}, nil // No new events found
+			return models.Event{}, nil // No new events found
 		}
 
-		return domain.Event{}, fmt.Errorf("%s: %w", op, err)
+		return models.Event{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return domain.Event{
+	return models.Event{
 		ID:      evt.ID,
 		Type:    evt.Type,
 		Payload: evt.Payload,
@@ -207,4 +217,53 @@ func (s *Storage) DeleteURL(alias string) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) SaveUser(email string, password []byte) (uid int64, err error) {
+	const op = "storage.sqlite.SaveUser"
+
+	stmt, err := s.db.Prepare("INSERT INTO users(email, password) VALUES(?, ?)")
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+			return
+		}
+		commitErr := tx.Commit()
+		if err != nil {
+			err = fmt.Errorf("%s: %w", op, commitErr)
+		}
+	}()
+
+	hashedpassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	res, err := stmt.Exec(email, hashedpassword)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("%s: failed to ge last insert id %w", op, err)
+	}
+
+	eventPayload := fmt.Sprintln(
+		`{"id": %d, "email": %s}`,
+		id,
+		email,
+	)
+
+	// save message to events table
+	if err := s.saveEvent(tx, "UserCreated", eventPayload); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	return id, nil
 }

@@ -66,7 +66,7 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		}
 
 		id, err := urlSaver.SaveURL(req.URL, alias)
-		// This error appears when url param is empty
+		// This error appears when url body is empty
 		if errors.Is(err, storage.ErrURLExists) {
 			log.Info("url already exists", sl.Err(err))
 			render.JSON(w, r, resp.Error("url already exists"))

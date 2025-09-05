@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"rest-api/internal/http-server/handlers/signup"
 
 	ssogrpc "rest-api/internal/clients/sso/grpc"
 
@@ -71,12 +72,11 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
+	// TODO: Registration and Login
+	router.Post("/signup", signup.New(log, storage))
+
 	// basic auth with chi
 	router.Route("/url", func(r chi.Router) {
-		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
-			cfg.HTTPServer.User: cfg.HTTPServer.Password,
-		}))
-
 		// post method to save url
 		r.Post("/", save.New(log, storage))
 		r.Delete("/delete/{alias}", deleteUrl.New(log, storage))
@@ -84,8 +84,6 @@ func main() {
 
 	// get method that redirects user to found url
 	router.Get("/{alias}", redirect.New(log, storage))
-
-	// TODO: GET without chi
 
 	log.Info("starting server", slog.String("address", cfg.Address))
 

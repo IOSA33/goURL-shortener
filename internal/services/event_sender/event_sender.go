@@ -3,7 +3,7 @@ package eventsender
 import (
 	"context"
 	"log/slog"
-	"rest-api/internal/domain"
+	"rest-api/internal/domain/models"
 	"rest-api/internal/lib/logger/sl"
 	"rest-api/internal/storage/sqlite"
 	"time"
@@ -57,7 +57,7 @@ func (s *Sender) StartProcessEvents(ctx context.Context, handlePeriod time.Durat
 	}()
 }
 
-func (s *Sender) SendMessage(event domain.Event) {
+func (s *Sender) SendMessage(event models.Event) {
 	const op = "services.event-sender.SendMessage"
 	log := s.log.With(slog.String("op", op))
 	log.Info("sending message", slog.Any("event", event))
