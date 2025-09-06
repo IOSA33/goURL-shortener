@@ -73,7 +73,7 @@ func main() {
 	router.Use(middleware.URLFormat)
 
 	// TODO: Registration and Login
-	router.Post("/signup", signup.New(log, storage))
+	router.Post("/register", signup.New(log, storage))
 
 	// basic auth with chi
 	router.Route("/url", func(r chi.Router) {

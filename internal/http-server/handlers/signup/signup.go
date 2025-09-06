@@ -31,7 +31,6 @@ type UserSaver interface {
 func New(log *slog.Logger, userSaver UserSaver) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		const op = "signup.New"
-
 		log = log.With(
 			slog.String("op", op),
 		)
