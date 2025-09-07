@@ -73,7 +73,7 @@ func main() {
 	// Todo: middleware for restrictedUrl url paths
 	router.Route("/url", func(r chi.Router) {
 		// TODO: make restricted logic
-		r.Use(restrictedUrl.New())
+		r.Use(restrictedUrl.New(log))
 
 		// post method to save url
 		r.Post("/", save.New(log, storage))

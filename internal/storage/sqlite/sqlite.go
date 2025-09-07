@@ -245,7 +245,7 @@ func (s *Storage) SaveUser(ctx context.Context, email string, password []byte) (
 		}
 	}()
 
-	hashedpassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashedpassword, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -259,7 +259,7 @@ func (s *Storage) SaveUser(ctx context.Context, email string, password []byte) (
 		if ctx.Err() != nil {
 			return 0, fmt.Errorf("database operation cancelled: %w", ctx.Err())
 		}
-		
+
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
