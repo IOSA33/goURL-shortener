@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -219,8 +220,12 @@ func (s *Storage) DeleteURL(alias string) error {
 	return nil
 }
 
-func (s *Storage) SaveUser(email string, password []byte) (uid int64, err error) {
+func (s *Storage) SaveUser(ctx context.Context, email string, password []byte) (uid int64, err error) {
 	const op = "storage.sqlite.SaveUser"
+
+	if err := ctx.Err; err != nil {
+		return 0, fmt.Errorf("operation cancelled: %w", err)
+	}
 
 	stmt, err := s.db.Prepare("INSERT INTO users(email, password) VALUES(?, ?)")
 
@@ -245,8 +250,16 @@ func (s *Storage) SaveUser(email string, password []byte) (uid int64, err error)
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	res, err := stmt.Exec(email, hashedpassword)
+	if err := ctx.Err(); err != nil {
+		return 0, fmt.Errorf("operation cancelled before DB query: %w", err)
+	}
+
+	res, err := stmt.ExecContext(ctx, email, hashedpassword)
 	if err != nil {
+		if ctx.Err() != nil {
+			return 0, fmt.Errorf("database operation cancelled: %w", ctx.Err())
+		}
+		
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
