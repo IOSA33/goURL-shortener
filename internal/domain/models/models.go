@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-/*
-type User struct {
-	Username, PasswordHash, Role string
-} */
-
 type User struct {
 	ID       int64
 	Email    string

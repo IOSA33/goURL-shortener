@@ -1,4 +1,4 @@
-package signup
+package register
 
 import (
 	"encoding/json"
@@ -11,7 +11,12 @@ import (
 	"rest-api/internal/domain/models"
 	resp "rest-api/internal/lib/api/response"
 	"rest-api/internal/lib/logger/sl"
+	"rest-api/internal/lib/myJwt"
 	"rest-api/internal/storage"
+)
+
+var (
+	roleUser = "user"
 )
 
 type Request struct {
@@ -30,7 +35,13 @@ type UserSaver interface {
 
 func New(log *slog.Logger, userSaver UserSaver) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		const op = "signup.New"
+		if err := r.ParseForm(); err != nil {
+			log.Error("failed to parse form", slog.String("error", err.Error()))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		const op = "register.New"
 		log = log.With(
 			slog.String("op", op),
 		)
@@ -81,6 +92,16 @@ func New(log *slog.Logger, userSaver UserSaver) http.HandlerFunc {
 
 		log.Info("user added", slog.Int64("id", id))
 
+		authTokenString, refreshTokenString, csrfSecret, err := myJwt.CreateNewTokens(email, roleUser)
+		if err != nil {
+			log.Error("failed to get Auth tokens", sl.Err(err))
+			render.JSON(w, r, resp.Error("failed to get Auth tokens"))
+			return
+		}
+
+		myJwt.SetAuthAndRefreshCookies(&w, authTokenString, refreshTokenString)
+		w.Header().Set("X-CSRF-Token", csrfSecret)
+		w.Write([]byte("CSRF token set"))
 		// Tells that everything is OK and user is added to db
 		responseOK(w, r, email)
 	}

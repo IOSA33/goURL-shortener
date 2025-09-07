@@ -7,13 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"rest-api/internal/http-server/handlers/signup"
-
-	ssogrpc "rest-api/internal/clients/sso/grpc"
+	"rest-api/internal/http-server/handlers/authHandlers/register"
+	"rest-api/internal/http-server/middleware/restrictedUrl"
+	"rest-api/internal/lib/myJwt"
+	"rest-api/templates"
 
 	"rest-api/internal/config"
 	"rest-api/internal/http-server/handlers/redirect"
-	"rest-api/internal/http-server/handlers/url/deleteUrl"
+	"rest-api/internal/http-server/handlers/url/delete"
 	"rest-api/internal/http-server/handlers/url/save"
 	mwLogger "rest-api/internal/http-server/middleware/logger" // custom name of import
 	"rest-api/internal/lib/logger/handlers/slogpretty"
@@ -38,22 +39,6 @@ func main() {
 	log.Info("Starting URL-Shortener ", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
 
-	// Adding Auth (sso) service
-	// Now this service can be implemented in middlewares or something
-	ssoClient, err := ssogrpc.New(
-		context.Background(),
-		log,
-		cfg.Clients.SSO.Address,
-		cfg.Clients.SSO.Timeout,
-		cfg.Clients.SSO.RetriesCount,
-	)
-	if err != nil {
-		log.Error("failed to init sso client", sl.Err(err))
-		os.Exit(1)
-	}
-
-	ssoClient.IsAdmin(context.Background(), 1)
-
 	// init storage: SQLite
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {
@@ -65,6 +50,7 @@ func main() {
 	// init router: chi, "chi render"
 	router := chi.NewRouter()
 
+	// TODO: From here needs to move to internal/app
 	// middleware
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Logger)
@@ -72,21 +58,34 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	// TODO: Registration and Login
-	router.Post("/register", signup.New(log, storage))
+	// Registration and Login
+	router.Get("/register", func(w http.ResponseWriter, r *http.Request) {
+		templates.RenderTemplate(w, "register", &templates.RegisterPage{false, ""})
+	})
+	router.Post("/register", register.New(log, storage))
 
-	// basic auth with chi
+	// When user is logging out
+	router.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
+		myJwt.NullifyTokenCookies(&w, r)
+		http.Redirect(w, r, "/login", http.StatusFound)
+	})
+
+	// Todo: middleware for restrictedUrl url paths
 	router.Route("/url", func(r chi.Router) {
+		// TODO: make restricted logic
+		r.Use(restrictedUrl.New())
+
 		// post method to save url
 		r.Post("/", save.New(log, storage))
-		r.Delete("/delete/{alias}", deleteUrl.New(log, storage))
+		r.Delete("/delete/{alias}", delete.New(log, storage))
 	})
 
 	// get method that redirects user to found url
 	router.Get("/{alias}", redirect.New(log, storage))
 
-	log.Info("starting server", slog.String("address", cfg.Address))
+	// TODO: To here
 
+	log.Info("starting server", slog.String("address", cfg.Address))
 	// server config
 	srv := &http.Server{
 		Addr:         cfg.Address,
@@ -108,6 +107,7 @@ func main() {
 	log.Error("server stopped")
 }
 
+// TODO: This also
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 
