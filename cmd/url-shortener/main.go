@@ -39,6 +39,8 @@ func main() {
 	log.Info("Starting URL-Shortener ", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
 
+	jwtService := myJwt.NewJWTService(log)
+
 	// init storage: SQLite
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {

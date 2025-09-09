@@ -2,13 +2,19 @@ package myJwt
 
 import (
 	"crypto/rsa"
+	"errors"
 	"github.com/golang-jwt/jwt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"rest-api/internal/domain/models"
 	"time"
 )
+
+type JWTService struct {
+	log *slog.Logger
+}
 
 const (
 	privKeyPath = "./lib/keys/app.rsa"
@@ -19,6 +25,10 @@ var (
 	verifyKey *rsa.PublicKey
 	signKey   *rsa.PrivateKey
 )
+
+func NewJWTService(log *slog.Logger) *JWTService {
+	return &JWTService{log: log}
+}
 
 func InitJWT() error {
 	// Reading private key from a file
@@ -68,8 +78,32 @@ func CreateNewTokens(uuid string, role string) (authTokenString, refreshTokenStr
 	return
 }
 
-func CheckAndRefreshTokens() {
+// CheckAndRefreshTokens checks old JWT token from user request and if it is okay, returns new token
+func (j *JWTService) CheckAndRefreshTokens(oldAuthTokenString string, oldRefreshTokenString string, oldCsrfSecret string) (newAuthTokenString, newRefreshTokenString, newCsrfSecret string, err error) {
 
+	if oldCsrfSecret == "" {
+		log.Println("No CSRF token!")
+		err = errors.New("Unauthorized")
+		return
+	}
+
+	jwt.ParseWithClaims(oldAuthTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifykey, nil
+	})
+	authTokenClaims, ok := authToken.Claims.(*models.TokenClaims)
+	if !ok {
+		return
+	}
+
+	if oldCsrfSecret != authTokenClaims.Csrf {
+		j.log.Info("CSRF token doesn't match jwt!")
+		err = errors.New("Unauthorized")
+		return
+	}
+
+	if authToken.Valid {
+		j.log.Info("AuthToken is valid")
+	}
 }
 
 func createAuthTokenString(uuid string, role string, csrfSecret string) (authTokenString string, err error) {
