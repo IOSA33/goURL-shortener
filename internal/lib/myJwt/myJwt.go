@@ -3,7 +3,7 @@ package myJwt
 import (
 	"crypto/rsa"
 	"errors"
-	"github.com/golang-jwt/jwt"
+	jwt "github.com/golang-jwt/jwt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -78,17 +78,17 @@ func CreateNewTokens(uuid string, role string) (authTokenString, refreshTokenStr
 	return
 }
 
-// CheckAndRefreshTokens checks old JWT token from user request and if it is okay, returns new token
+// CheckAndRefreshTokens checks old JWT token from user request and if it is okay, returns refreshed token
 func (j *JWTService) CheckAndRefreshTokens(oldAuthTokenString string, oldRefreshTokenString string, oldCsrfSecret string) (newAuthTokenString, newRefreshTokenString, newCsrfSecret string, err error) {
 
 	if oldCsrfSecret == "" {
 		log.Println("No CSRF token!")
-		err = errors.New("Unauthorized")
+		err = errors.New("unauthorized")
 		return
 	}
 
-	jwt.ParseWithClaims(oldAuthTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return verifykey, nil
+	authToken, err := jwt.ParseWithClaims(oldAuthTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
 	})
 	authTokenClaims, ok := authToken.Claims.(*models.TokenClaims)
 	if !ok {
@@ -97,12 +97,44 @@ func (j *JWTService) CheckAndRefreshTokens(oldAuthTokenString string, oldRefresh
 
 	if oldCsrfSecret != authTokenClaims.Csrf {
 		j.log.Info("CSRF token doesn't match jwt!")
-		err = errors.New("Unauthorized")
+		err = errors.New("unauthorized")
 		return
 	}
 
 	if authToken.Valid {
-		j.log.Info("AuthToken is valid")
+		log.Println("Auth token is valid")
+
+		newCsrfSecret = authTokenClaims.Csrf
+
+		newRefreshTokenString, err = updateRefreshTokenExp(oldRefreshTokenString)
+		newAuthTokenString = oldAuthTokenString
+		return
+	} else if ve, ok := err.(*jwt.ValidationError); ok {
+		log.Println("Auth token is not valid")
+		if ve.Errors&(jwt.ValidationErrorExpired) != 0 {
+			log.Println("Auth token is expired")
+
+			newAuthTokenString, newCsrfSecret, err = updateAuthTokenString(oldRefreshTokenString, oldAuthTokenString)
+			if err != nil {
+				return
+			}
+
+			newRefreshTokenString, err = updateRefreshTokenExp(oldRefreshTokenString)
+			if err != nil {
+				return
+			}
+
+			newRefreshTokenString, err = updateRefreshTokenCsrf(newRefreshTokenString, newCsrfSecret)
+			return
+		} else {
+			log.Println("Error in auth token")
+			err = errors.New("Error in auth token")
+			return
+		}
+	} else {
+		log.Println("Error in auth token")
+		err = errors.New("Error in auth token")
+		return
 	}
 }
 
@@ -160,11 +192,37 @@ func createRefreshTokenString(uuid string, role string, csrfString string) (refr
 	return
 }
 
-func updateRefreshTokenExp() {
+func updateRefreshTokenExp(oldRefreshTokenString string) (newRefreshTokenString string, err error) {
+	refreshToken, err := jwt.ParseWithClaims(oldRefreshTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
 
+	oldRefreshTokenClaims, ok := refreshToken.Claims.(*models.TokenClaims)
+	if !ok {
+		return
+	}
+
+	// Giving same new time
+	refreshTokenExp := time.Now().Add(models.RefreshTokenValidTime).Unix()
+
+	// So we parse old token and gives it to the refresh token, same values as the old one
+	refreshClaims := models.TokenClaims{
+		jwt.StandardClaims{
+			Id:        oldRefreshTokenClaims.StandardClaims.Id,
+			Subject:   oldRefreshTokenClaims.StandardClaims.Subject,
+			ExpiresAt: refreshTokenExp,
+		},
+		oldRefreshTokenClaims.Role,
+		oldRefreshTokenClaims.Csrf,
+	}
+
+	refreshJwt := jwt.NewWithClaims(jwt.GetSigningMethod("RS256"), refreshClaims)
+
+	newRefreshTokenString, err = refreshJwt.SignedString(signKey)
+	return
 }
 
-func updateAuthTokenString() {
+func updateAuthTokenString(oldRefreshTokenString string, oldAuthTokenString string) newRefreshTokenString {
 
 }
 
@@ -176,8 +234,18 @@ func updateRefreshTokenCsrf() {
 
 }
 
-func GrabUUID() {
+// GrabUUID returns users uid, first it claims usersToken and from there it returns users subject uuid
+func GrabUUID(authTokenString string) (string, error) {
+	authToken, _ := jwt.ParseWithClaims(authTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return "", errors.New("Error fetching claims")
+	})
 
+	authTokenClaims, ok := authToken.Claims.(*models.TokenClaims)
+	if !ok {
+		return "", errors.New("error fetching claims")
+	}
+
+	return authTokenClaims.StandardClaims.Subject, nil
 }
 
 // NullifyTokenCookies sets auth token and refresh token to empty string
