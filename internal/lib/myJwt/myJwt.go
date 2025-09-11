@@ -256,27 +256,44 @@ func (j *JWTService) updateAuthTokenString(refreshTokenString string, oldAuthTok
 				return
 			}
 
+			// Subject is the uuid of the user
 			newAuthTokenString, err = createAuthTokenString(oldAuthTokenClaims.StandardClaims.Subject, oldAuthTokenClaims.Role, csrfSecret)
 
 			return
 		} else {
-			log.Println("Refresh token has expired!")
+			j.log.Info("Refresh token has expired!")
 
+			// TODO: change to our database
 			db.DeleteRefreshToken(refreshTokenClaims.StandardClaims.Id)
 
-			err = errors.New("Unauthorized")
+			err = errors.New("unauthorized")
 			return
 		}
 	} else {
-		log.Println("Refresh token has been revoked!")
+		j.log.Info("Refresh token has been revoked!")
 
-		err = errors.New("Unauthorized")
+		err = errors.New("unauthorized")
 		return
 	}
 }
 
-func RevokeRefreshToken() error {
+func RevokeRefreshToken(refreshTokenString string) error {
+	refreshToken, err := jwt.ParseWithClaims(refreshTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
+	if err != nil {
+		return errors.New("Could not parse refresh token with claims")
+	}
 
+	refreshTokenClaims, ok := refreshToken.Claims.(*models.TokenClaims)
+	if !ok {
+		return errors.New("Could not read refresh token claims")
+	}
+
+	// TODO: change db
+	db.DeleteRefreshToken(refreshTokenClaims.StandardClaims.Id)
+
+	return nil
 }
 
 func updateRefreshTokenCsrf() {
