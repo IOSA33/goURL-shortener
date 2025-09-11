@@ -296,8 +296,30 @@ func RevokeRefreshToken(refreshTokenString string) error {
 	return nil
 }
 
-func updateRefreshTokenCsrf() {
+func updateRefreshTokenCsrf(oldRefreshTokenString string, newCsrfString string) (newRefreshTokenString string, err error) {
+	refreshToken, err := jwt.ParseWithClaims(oldRefreshTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
 
+	oldRefreshTokenClaims, ok := refreshToken.Claims.(*models.TokenClaims)
+	if !ok {
+		return
+	}
+
+	refreshClaims := models.TokenClaims{
+		jwt.StandardClaims{
+			Id:        oldRefreshTokenClaims.StandardClaims.Id, // jti
+			Subject:   oldRefreshTokenClaims.StandardClaims.Subject,
+			ExpiresAt: oldRefreshTokenClaims.StandardClaims.ExpiresAt,
+		},
+		oldRefreshTokenClaims.Role,
+		newCsrfString,
+	}
+
+	refreshJwt := jwt.NewWithClaims(jwt.GetSigningMethod("RS256"), refreshClaims)
+
+	newRefreshTokenString, err = refreshJwt.SignedString(signKey)
+	return
 }
 
 // GrabUUID returns users uid, first it claims usersToken and from there it returns users subject uuid
