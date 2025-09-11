@@ -3,6 +3,7 @@ package myJwt
 import (
 	"crypto/rsa"
 	"errors"
+	"fmt"
 	jwt "github.com/golang-jwt/jwt"
 	"log"
 	"log/slog"
@@ -222,8 +223,56 @@ func updateRefreshTokenExp(oldRefreshTokenString string) (newRefreshTokenString 
 	return
 }
 
-func updateAuthTokenString(oldRefreshTokenString string, oldAuthTokenString string) newRefreshTokenString {
+func (j *JWTService) updateAuthTokenString(refreshTokenString string, oldAuthTokenString string) (newAuthTokenString, csrfSecret string, err error) {
+	// Same thing again and again, so we're getting token and parsing it
+	refreshToken, err := jwt.ParseWithClaims(refreshTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
+	refreshTokenClaims, ok := refreshToken.Claims.(*models.TokenClaims)
+	if !ok {
+		err = fmt.Errorf("error reading jwt claims")
+		j.log.Error(err.Error())
+		return
+	}
 
+	// TODO: Change to our database
+	if db.CheckRefreshToken(refreshTokenClaims.StandardClaims.Id) {
+
+		if refreshToken.Valid {
+
+			authToken, _ := jwt.ParseWithClaims(oldAuthTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+				return verifyKey, nil
+			})
+
+			oldAuthTokenClaims, ok := authToken.Claims.(*models.TokenClaims)
+			if !ok {
+				err = fmt.Errorf("error reading jwt claims")
+				j.log.Error(err.Error())
+				return
+			}
+
+			csrfSecret, err = models.GenerateCSRFSecret()
+			if err != nil {
+				return
+			}
+
+			newAuthTokenString, err = createAuthTokenString(oldAuthTokenClaims.StandardClaims.Subject, oldAuthTokenClaims.Role, csrfSecret)
+
+			return
+		} else {
+			log.Println("Refresh token has expired!")
+
+			db.DeleteRefreshToken(refreshTokenClaims.StandardClaims.Id)
+
+			err = errors.New("Unauthorized")
+			return
+		}
+	} else {
+		log.Println("Refresh token has been revoked!")
+
+		err = errors.New("Unauthorized")
+		return
+	}
 }
 
 func RevokeRefreshToken() error {
